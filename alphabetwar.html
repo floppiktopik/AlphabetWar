@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0720">
+<title>Битва букв русского алфавита</title>
+<style>
+/* ==========================================================================
+   ОБЩИЕ НАСТРОЙКИ И ТЁМНЫЙ АРКАДНЫЙ ФОН
+   ========================================================================== */
+:root {
+  --bg1: #0b0720;
+  --bg2: #1a0b3a;
+  --cyan: #27e6ff;
+  --pink: #ff3df2;
+  --yellow: #ffe45c;
+  --green: #5bff8a;
+  --ink: #ecebff;
+  --panel: rgba(20, 12, 48, .8);
+  --font-letter: "Arial Black", "Segoe UI Black", Impact, "Helvetica Neue", Arial, sans-serif;
+  --font-ui: "Trebuchet MS", "Segoe UI", Verdana, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body { margin: 0; min-height: 100%; }
+
+body {
+  background: radial-gradient(ellipse at 50% -10%, #3a1670 0%, var(--bg2) 38%, var(--bg1) 100%) fixed;
+  color: var(--ink);
+  font-family: var(--font-ui);
+  overflow-x: hidden;
+}
+
+/* Неоновая сетка-«горизонт» внизу экрана */
+body::before {
+  content: "";
+  position: fixed;
+  left: -50%; right: -50%; bottom: 0;
+  height: 45vh;
+  background:
+    linear-gradient(rgba(39, 230, 255, .28) 1px, transparent 1px) 0 0 / 100% 40px,
+    linear-gradient(90deg, rgba(255, 61, 242, .28) 1px, transparent 1px) 0 0 / 60px 100%;
+  transform: perspective(300px) rotateX(60deg);
+  transform-origin: 50% 100%;
+  -webkit-mask-image: linear-gradient(to top, #000, transparent);
+  mask-image: linear-gradient(to top, #000, transparent);
+  pointer-events: none;
+  z-index: 0;
+  animation: gridMove 3s linear infinite;
+}
+
+/* Лёгкие «строки развёртки» старого монитора */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, .03) 0 1px, transparent 1px 3px);
+  pointer-events: none;
+  z-index: 50;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 14px 14px 32px;
+}
+
+h1 {
+  margin: 6px 0 2px;
+  text-align: center;
+  font-family: var(--font-letter);
+  font-weight: 900;
+  font-size: clamp(26px, 6.5vw, 52px);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #fff;
+  text-shadow: 0 0 6px var(--cyan), 0 0 18px var(--cyan), 0 0 40px var(--pink);
+  animation: neon 3s ease-in-out infinite alternate;
+}
+
+.subtitle {
+  margin: 0 0 14px;
+  text-align: center;
+  color: #b9b3e6;
+  font-size: clamp(12px, 3.2vw, 15px);
+}
+
+/* ==========================================================================
+   АРЕНА: ДВЕ КАРТОЧКИ БОЙЦОВ
+   ========================================================================== */
+.arena {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: clamp(6px, 2vw, 18px);
+  align-items: center;
+}
+
+.fighter {
+  --c: var(--cyan);
+  position: relative;
+  padding: 12px 8px 18px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(40, 22, 90, .92), rgba(16, 9, 40, .96));
+  border: 3px solid var(--c);
+  box-shadow: 0 0 14px var(--c), inset 0 0 24px rgba(255, 255, 255, .05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transition: box-shadow .3s, border-color .3s, filter .45s;
+}
+#cardB { --c: var(--pink); }
+
+.tag {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--c);
+}
+
+.letter {
+  font-family: var(--font-letter);
+  font-weight: 900;
+  font-size: clamp(64px, 22vw, 170px);
+  line-height: 1.05;
+  color: #fff;
+  text-shadow: 0 0 10px var(--c), 0 0 30px var(--c);
+  user-select: none;
+  transition: color .45s, text-shadow .45s, opacity .45s;
+}
+.letter.empty { opacity: .35; }
+.letter.gone { visibility: hidden; }
+
+/* Во время рулетки карточка мигает жёлтым */
+.fighter.flicker { animation: cardBlink .16s steps(2, end) infinite; }
+.fighter.flicker .letter {
+  color: var(--yellow);
+  text-shadow: 0 0 14px var(--yellow), 0 0 40px var(--yellow);
+}
+
+/* Победитель раунда светится золотом, проигравший тускнеет */
+.fighter.is-winner {
+  border-color: var(--yellow);
+  animation: winPulse .8s ease-in-out infinite alternate;
+}
+.fighter.is-loser {
+  border-color: #4b4b60;
+  box-shadow: none;
+  filter: grayscale(.85) brightness(.7);
+}
+.fighter.is-loser .letter { color: #8a8a9a; text-shadow: none; }
+
+.vs {
+  font-family: var(--font-letter);
+  font-size: clamp(18px, 5vw, 38px);
+  color: var(--yellow);
+  text-shadow: 0 0 10px #ff9d00, 0 0 24px #ff9d00;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+/* ==========================================================================
+   КУБИК (грани рисуются точками на сетке 3×3)
+   ========================================================================== */
+.die {
+  width: clamp(60px, 17vw, 92px);
+  aspect-ratio: 1;
+  background: linear-gradient(145deg, #ffffff, #d9d4f2);
+  border-radius: 16%;
+  display: grid;
+  grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+  padding: 13%;
+  box-shadow: 0 6px 0 #a79fd6, 0 10px 18px rgba(0, 0, 0, .5);
+}
+.die i { width: 78%; height: 78%; margin: auto; border-radius: 50%; }
+.die i.on { background: radial-gradient(circle at 35% 30%, #5a3fc0, #1b1030); }
+.die .q {
+  grid-area: 1 / 1 / 4 / 4;
+  display: grid;
+  place-items: center;
+  font: 900 clamp(26px, 7vw, 40px) var(--font-letter);
+  color: #8e84c4;
+}
+.die.rolling { filter: drop-shadow(0 0 10px var(--yellow)); }
+.fighter.is-winner .die { box-shadow: 0 6px 0 #c9a400, 0 0 22px var(--yellow); }
+
+/* ==========================================================================
+   ПАНЕЛЬ СТАТУСА
+   ========================================================================== */
+.panel {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 2px solid rgba(120, 100, 255, .45);
+  box-shadow: 0 0 18px rgba(120, 100, 255, .25);
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  text-align: center;
+}
+.stat span {
+  display: block;
+  font-size: 11px;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: #a9a2dd;
+}
+.stat b {
+  display: block;
+  margin-top: 2px;
+  font: 900 clamp(20px, 5vw, 30px) "Courier New", monospace;
+  color: var(--yellow);
+  text-shadow: 0 0 8px rgba(255, 228, 92, .6);
+}
+.result {
+  margin-top: 10px;
+  min-height: 2.8em;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  font-weight: 700;
+  font-size: clamp(15px, 3.8vw, 19px);
+  line-height: 1.35;
+}
+.result.tie { color: #ffb347; }
+.result.win { color: var(--green); }
+.result.final { color: var(--yellow); }
+.hint {
+  min-height: 1.3em;
+  margin-top: 2px;
+  text-align: center;
+  font-size: 13px;
+  color: #9d97cf;
+}
+
+/* ==========================================================================
+   КНОПКИ И ПЕРЕКЛЮЧАТЕЛЬ
+   ========================================================================== */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 16px;
+}
+.btn {
+  --b: #fff;
+  --bd: #999;
+  font: 800 clamp(14px, 3.8vw, 17px) var(--font-ui);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 12px;
+  color: #10052a;
+  cursor: pointer;
+  background: var(--b);
+  box-shadow: 0 5px 0 var(--bd), 0 0 16px var(--b);
+  transition: transform .08s, box-shadow .08s, filter .2s;
+}
+.btn:hover:not(:disabled) { filter: brightness(1.1); }
+.btn:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 var(--bd), 0 0 10px var(--b); }
+.btn:disabled { filter: grayscale(1) brightness(.55); cursor: not-allowed; box-shadow: 0 5px 0 #333; }
+.btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+#btnStart { --b: #5bff8a; --bd: #1f9d4a; }
+#btnNext  { --b: #27e6ff; --bd: #0f8ba0; }
+#btnReset { --b: #ff7a59; --bd: #a8381f; }
+#btnSound { --b: #ffe45c; --bd: #a88b0e; }
+#btnAgain { --b: #5bff8a; --bd: #1f9d4a; }
+#btnClose { --b: #c9c3ff; --bd: #6e66b8; }
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .06);
+  border: 2px solid rgba(255, 255, 255, .18);
+  font: 800 clamp(14px, 3.8vw, 17px) var(--font-ui);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
+}
+.switch input { position: absolute; opacity: 0; pointer-events: none; }
+.switch .track {
+  position: relative;
+  width: 44px; height: 24px;
+  border-radius: 99px;
+  background: #3b3560;
+  transition: background .2s, box-shadow .2s;
+}
+.switch .track::after {
+  content: "";
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .2s;
+}
+.switch input:checked + .track { background: var(--green); box-shadow: 0 0 10px var(--green); }
+.switch input:checked + .track::after { transform: translateX(20px); }
+.switch input:focus-visible + .track { outline: 2px solid #fff; outline-offset: 3px; }
+
+/* ==========================================================================
+   АЛФАВИТ ЖЕТОНАМИ
+   ========================================================================== */
+.alphabet {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(4px, 1.2vw, 8px);
+  margin-top: 18px;
+}
+.token {
+  position: relative;
+  width: clamp(32px, 8.4vw, 52px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  font: 900 clamp(16px, 4.4vw, 26px) var(--font-letter);
+  color: #fff;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #3b2a8f, #241263);
+  border: 2px solid #6e5ce0;
+  box-shadow: 0 0 8px rgba(110, 92, 224, .5);
+  user-select: none;
+  transition: background .12s, transform .12s, box-shadow .2s, color .2s, border-color .2s;
+}
+.token.fight { border-color: var(--yellow); box-shadow: 0 0 14px var(--yellow); transform: scale(1.12); }
+.token.flick { background: var(--yellow); color: #1a0b3a; transform: scale(1.18); border-color: #fff; }
+.token.champ {
+  background: linear-gradient(180deg, #ffe45c, #ff9d00);
+  color: #2a1200;
+  border-color: #fff;
+  box-shadow: 0 0 22px var(--yellow);
+  transform: scale(1.15);
+}
+/* Выбывшая буква: серая и зачёркнутая */
+.token.dead {
+  background: #2a2a36;
+  border-color: #3a3a48;
+  color: #6c6c7e;
+  box-shadow: none;
+  transform: none;
+}
+.token.dead span {
+  text-decoration: line-through;
+  text-decoration-thickness: 3px;
+  text-decoration-color: #9a9ab0;
+}
+
+/* ==========================================================================
+   ФИНАЛ, ВСПЫШКА, ЧАСТИЦЫ
+   ========================================================================== */
+#fx {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 110;
+}
+#flash {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 130;
+}
+#finale {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+  background: radial-gradient(circle at 50% 45%, rgba(60, 20, 120, .88), rgba(5, 3, 15, .94));
+}
+#finale.show { display: grid; animation: fadeIn .5s both; }
+.finale-letter {
+  font-family: var(--font-letter);
+  font-weight: 900;
+  font-size: min(52vw, 42vh);
+  line-height: 1.05;
+  color: #fff;
+  text-shadow: 0 0 20px var(--yellow), 0 0 60px var(--yellow), 0 0 120px #ff9d00;
+}
+#finale.show .finale-letter {
+  animation: grow 1.1s cubic-bezier(.2, 1.3, .4, 1) both, hover 2.6s ease-in-out 1.1s infinite alternate;
+}
+.finale-text {
+  font: 900 clamp(26px, 7vw, 56px) var(--font-letter);
+  color: var(--yellow);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  text-shadow: 0 0 12px #ff9d00, 0 0 30px #ff9d00;
+}
+.finale-actions { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 18px; }
+
+/* ==========================================================================
+   КЛЮЧЕВЫЕ КАДРЫ
+   ========================================================================== */
+@keyframes gridMove { to { background-position: 0 40px, 0 0; } }
+@keyframes neon {
+  from { text-shadow: 0 0 6px #27e6ff, 0 0 18px #27e6ff, 0 0 40px #ff3df2; }
+  to   { text-shadow: 0 0 4px #ff3df2, 0 0 14px #ff3df2, 0 0 36px #27e6ff; }
+}
+@keyframes pulse { 50% { transform: scale(1.18); } }
+@keyframes cardBlink { 50% { box-shadow: 0 0 30px var(--yellow); border-color: var(--yellow); } }
+@keyframes winPulse { to { box-shadow: 0 0 44px var(--yellow), 0 0 90px rgba(255, 157, 0, .6); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes grow {
+  0%   { transform: scale(.05) rotate(-200deg); opacity: 0; }
+  60%  { transform: scale(1.25) rotate(8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes hover { to { transform: translateY(-14px) scale(1.04); } }
+
+/* ==========================================================================
+   АДАПТИВНОСТЬ ДЛЯ ТЕЛЕФОНОВ
+   ========================================================================== */
+@media (max-width: 520px) {
+  #app { padding: 10px 10px 26px; }
+  .fighter { padding: 10px 4px 14px; border-radius: 16px; }
+  .controls { gap: 10px; }
+  .controls .btn, .controls .switch { flex: 1 1 calc(50% - 10px); justify-content: center; padding: 11px 8px; }
+  .panel { padding: 10px; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <h1>Битва букв</h1>
+    <p class="subtitle">33 буквы русского алфавита · в каждом раунде выбывает одна · останется только сильнейшая</p>
+  </header>
+
+  <main>
+    <!-- Арена: две карточки бойцов -->
+    <section class="arena" aria-label="Арена боя">
+      <article class="fighter" id="cardA">
+        <div class="tag">Боец 1</div>
+        <div class="letter empty" id="letterA">?</div>
+        <div class="die" id="dieA" role="img" aria-label="Кубик бойца 1"></div>
+      </article>
+
+      <div class="vs" aria-hidden="true">VS</div>
+
+      <article class="fighter" id="cardB">
+        <div class="tag">Боец 2</div>
+        <div class="letter empty" id="letterB">?</div>
+        <div class="die" id="dieB" role="img" aria-label="Кубик бойца 2"></div>
+      </article>
+    </section>
+
+    <!-- Панель статуса -->
+    <section class="panel" aria-label="Статус игры">
+      <div class="stats">
+        <div class="stat"><span>Раунд</span><b id="roundNum">0</b></div>
+        <div class="stat"><span>Осталось</span><b id="leftNum">33/33</b></div>
+        <div class="stat"><span>Кубики</span><b id="diceVals">– : –</b></div>
+      </div>
+      <div class="result" id="resultText" aria-live="polite"></div>
+      <div class="hint" id="hintText"></div>
+    </section>
+
+    <!-- Управление -->
+    <section class="controls" aria-label="Управление">
+      <button class="btn" id="btnStart" type="button">Старт</button>
+      <button class="btn" id="btnNext" type="button">Следующий раунд</button>
+      <button class="btn" id="btnReset" type="button">Сброс</button>
+      <label class="switch">
+        <input type="checkbox" id="autoToggle">
+        <span class="track"></span>
+        <span>Авторежим</span>
+      </label>
+      <button class="btn" id="btnSound" type="button" aria-pressed="true">🔊 Звук: вкл</button>
+    </section>
+
+    <!-- Весь алфавит жетонами -->
+    <section class="alphabet" id="alphabet" aria-label="Алфавит"></section>
+  </main>
+</div>
+
+<!-- Финальный экран победителя -->
+<div id="finale" role="dialog" aria-label="Финал игры">
+  <div class="finale-letter" id="finaleLetter">?</div>
+  <div class="finale-text" id="finaleText">Победитель</div>
+  <div class="finale-actions">
+    <button class="btn" id="btnAgain" type="button">Сыграть снова</button>
+    <button class="btn" id="btnClose" type="button">Закрыть</button>
+  </div>
+</div>
+
+<canvas id="fx"></canvas>
+<div id="flash"></div>
+
+<script>
+'use strict';
+
+/* ==========================================================================
+   1. КОНСТАНТЫ
+   ========================================================================== */
+
+// Все 33 буквы русского алфавита
+const ALPHABET = Array.from('АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ');
+
+// Две позиции бойцов на арене
+const SLOTS = ['a', 'b'];
+
+// Границы значения кубика
+const DICE_MIN = 1;
+const DICE_MAX = 6;
+
+// Какие ячейки сетки 3×3 закрашены точками на каждой грани
+// (ячейки нумеруются слева направо, сверху вниз: 0 1 2 / 3 4 5 / 6 7 8)
+const PIPS = {
+  1: [4],
+  2: [0, 8],
+  3: [0, 4, 8],
+  4: [0, 2, 6, 8],
+  5: [0, 2, 4, 6, 8],
+  6: [0, 2, 3, 5, 6, 8],
+};
+
+// Тайминги анимаций и пауз (в миллисекундах)
+const T = {
+  ROULETTE_STEPS: 24,   // сколько раз мигнёт рулетка перед остановкой
+  ROULETTE_FAST: 45,    // пауза между миганиями в начале рулетки
+  ROULETTE_SLOW: 190,   // пауза между миганиями в конце (рулетка замедляется)
+  BETWEEN_PICKS: 300,   // пауза между выбором первого и второго бойца
+  BEFORE_ROLL: 350,     // пауза перед броском кубиков
+  ROLL_A: 1000,         // сколько трясётся первый кубик
+  ROLL_B: 1300,         // сколько трясётся второй кубик (замирают не одновременно)
+  FACE_FLIP: 70,        // как часто меняются грани во время броска
+  TIE_HOP: 600,         // подпрыгивание кубиков при ничьей
+  TIE_PAUSE: 700,       // пауза после ничьей перед перебросом
+  DIM: 500,             // проигравшая буква тускнеет
+  FLY: 800,             // проигравшая буква вылетает
+  SHAKE: 520,           // тряска экрана
+  FLASH: 450,           // вспышка
+  AFTER_ROUND: 700,     // пауза после раунда
+  AUTO_DELAY: 1400,     // пауза между раундами в авторежиме
+  CONFETTI: 6000,       // сколько длится дождь из конфетти
+};
+
+// Цвета конфетти и искр
+const CONFETTI_COLORS = ['#ff3df2', '#27e6ff', '#ffe45c', '#5bff8a', '#ff7a59', '#ffffff', '#8f7bff'];
+
+// Заготовки кадров для Web Animations API
+const BOUNCE_FRAMES = [
+  { transform: 'translateY(0) scale(1, 1)', offset: 0 },
+  { transform: 'translateY(-46px) scale(.92, 1.1)', offset: .35 },
+  { transform: 'translateY(0) scale(1.15, .82)', offset: .6 },
+  { transform: 'translateY(-14px) scale(.97, 1.04)', offset: .8 },
+  { transform: 'translateY(0) scale(1, 1)', offset: 1 },
+];
+const SHAKE_FRAMES = [ // тряска и кувыркание кубика
+  { transform: 'perspective(300px) translate(0, 0) rotateX(0deg) rotateY(0deg) rotate(0deg)' },
+  { transform: 'perspective(300px) translate(-6px, -10px) rotateX(90deg) rotateY(40deg) rotate(-20deg)' },
+  { transform: 'perspective(300px) translate(7px, 4px) rotateX(180deg) rotateY(-50deg) rotate(25deg)' },
+  { transform: 'perspective(300px) translate(-5px, 8px) rotateX(270deg) rotateY(30deg) rotate(-15deg)' },
+  { transform: 'perspective(300px) translate(0, 0) rotateX(360deg) rotateY(0deg) rotate(0deg)' },
+];
+const SETTLE_FRAMES = [ // кубик «встаёт» на место
+  { transform: 'scale(1.35)' },
+  { transform: 'scale(.92)' },
+  { transform: 'scale(1)' },
+];
+const HOP_FRAMES = [ // подпрыгивание кубика при ничьей
+  { transform: 'translateY(0) rotate(0deg)' },
+  { transform: 'translateY(-34px) rotate(-14deg)', offset: .3 },
+  { transform: 'translateY(0) rotate(8deg)', offset: .55 },
+  { transform: 'translateY(-16px) rotate(-6deg)', offset: .75 },
+  { transform: 'translateY(0) rotate(0deg)' },
+];
+const TOKEN_DEAD_FRAMES = [ // «встряска» жетона выбывшей буквы
+  { transform: 'scale(1.35) rotate(0deg)' },
+  { transform: 'scale(.8) rotate(-12deg)' },
+  { transform: 'scale(1.05) rotate(8deg)' },
+  { transform: 'scale(1) rotate(0deg)' },
+];
+
+/* ==========================================================================
+   2. СОСТОЯНИЕ ИГРЫ
+   ========================================================================== */
+
+// Начальное состояние партии
+function createInitialState() {
+  return {
+    alive: [...ALPHABET],                 // буквы, которые ещё в игре
+    out: [],                              // выбывшие буквы по порядку вылета
+    round: 0,                             // номер текущего раунда
+    fighters: { a: null, b: null },       // буквы на позициях бойцов
+    dice: { a: 0, b: 0 },                 // значения кубиков (0 — ещё не брошен)
+    flicker: { a: false, b: false },      // идёт ли рулетка на позиции
+    rolling: { a: false, b: false },      // крутится ли кубик
+    winnerSlot: null,                     // позиция победителя раунда
+    loserSlot: null,                      // позиция проигравшего раунда
+    loserGone: false,                     // проигравшая буква уже вылетела
+    started: false,                       // нажат ли «Старт»
+    busy: false,                          // идёт ли сейчас раунд
+    finished: false,                      // осталась ли одна буква
+    winner: null,                         // победитель всей игры
+    finaleOpen: false,                    // показан ли финальный экран
+    result: { text: 'Нажмите «Старт», чтобы начать битву!', tone: '' }, // текст результата
+  };
+}
+
+// Общее состояние. Настройки auto/soundOn и служебные счётчики переживают сброс.
+const state = Object.assign(createInitialState(), {
+  auto: false,        // авторежим
+  soundOn: true,      // звук включён
+  runId: 0,           // «номер партии»: при сбросе растёт, и старые асинхронные цепочки обрываются
+  autoTicket: 0,      // «билет» отложенного запуска следующего раунда в авторежиме
+});
+
+// Сброс состояния: настройки сохраняем, всё остальное — заново
+function resetState() {
+  const { auto, soundOn, runId, autoTicket } = state;
+  Object.assign(state, createInitialState(), { auto, soundOn, runId: runId + 1, autoTicket: autoTicket + 1 });
+}
+
+/* ==========================================================================
+   3. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+   ========================================================================== */
+
+// Пауза с async/await
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Исключение, которым обрывается раунд при сбросе игры
+class RunAborted extends Error {}
+
+// Если партию сбросили, прерываем текущую асинхронную цепочку
+function checkRun(run) {
+  if (run !== state.runId) throw new RunAborted();
+}
+
+// Пауза, после которой проверяем, не сбросили ли игру
+async function wait(ms, run) {
+  await sleep(ms);
+  checkRun(run);
+}
+
+const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randItem = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+// Все запущенные анимации держим в наборе, чтобы отменить их при сбросе
+const activeAnims = new Set();
+
+// Запускает анимацию элемента и запоминает её
+function play(el, frames, options) {
+  const animation = el.animate(frames, options);
+  activeAnims.add(animation);
+  const forget = () => activeAnims.delete(animation);
+  animation.finished.then(forget, forget);
+  return animation;
+}
+
+// Запускает анимацию и ждёт её окончания (отмена анимации не считается ошибкой)
+async function anim(el, frames, options, run) {
+  const animation = play(el, frames, options);
+  try { await animation.finished; } catch (e) { /* анимацию отменили сбросом */ }
+  if (run !== undefined) checkRun(run);
+}
+
+function cancelAllAnims() {
+  activeAnims.forEach((a) => a.cancel());
+  activeAnims.clear();
+}
+
+/* ==========================================================================
+   4. ЭЛЕМЕНТЫ СТРАНИЦЫ
+   ========================================================================== */
+const $ = (id) => document.getElementById(id);
+
+const els = {
+  app: $('app'),
+  flash: $('flash'),
+  card: { a: $('cardA'), b: $('cardB') },
+  letter: { a: $('letterA'), b: $('letterB') },
+  die: { a: $('dieA'), b: $('dieB') },
+  round: $('roundNum'),
+  left: $('leftNum'),
+  diceVals: $('diceVals'),
+  result: $('resultText'),
+  hint: $('hintText'),
+  alphabet: $('alphabet'),
+  tokens: {},                       // жетоны букв: { 'А': элемент, ... }
+  btnStart: $('btnStart'),
+  btnNext: $('btnNext'),
+  btnReset: $('btnReset'),
+  auto: $('autoToggle'),
+  btnSound: $('btnSound'),
+  finale: $('finale'),
+  finaleLetter: $('finaleLetter'),
+  finaleText: $('finaleText'),
+  btnAgain: $('btnAgain'),
+  btnClose: $('btnClose'),
+  fxCanvas: $('fx'),
+};
+
+// Создаём жетоны для всего алфавита
+function buildAlphabet() {
+  for (const letter of ALPHABET) {
+    const token = document.createElement('div');
+    token.className = 'token';
+    const span = document.createElement('span');
+    span.textContent = letter;
+    token.appendChild(span);
+    els.alphabet.appendChild(token);
+    els.tokens[letter] = token;
+  }
+}
+
+/* ==========================================================================
+   5. ЗВУКИ (Web Audio API, без файлов)
+   ========================================================================== */
+let audioCtx = null;      // создаётся только после первого клика пользователя
+let masterGain = null;
+let noiseBuffer = null;
+
+// Инициализация звука (вызывается по первому клику; повторные вызовы безопасны)
+function initAudio() {
+  if (audioCtx) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return;
+  }
+  const AudioCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtor) return;
+  audioCtx = new AudioCtor();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.6;
+  masterGain.connect(audioCtx.destination);
+  // Секунда белого шума — основа для «стука» кубиков и удара
+  noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate, audioCtx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+}
+
+// Тон: генератор с плавным затуханием (freq → to — необязательный «скольз» по высоте)
+function tone({ freq, to, type = 'sine', start = 0, dur = 0.15, vol = 0.3 }) {
+  const t0 = audioCtx.currentTime + start;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (to) osc.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.005);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.05);
+}
+
+// Шумовой «щелчок» с фильтром
+function noise({ start = 0, dur = 0.05, vol = 0.3, freq = 1500, q = 1, type = 'bandpass' }) {
+  const t0 = audioCtx.currentTime + start;
+  const src = audioCtx.createBufferSource();
+  src.buffer = noiseBuffer;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = type;
+  filter.frequency.value = freq;
+  filter.Q.value = q;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.0001, t0);
+  gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.004);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(masterGain);
+  src.start(t0, Math.random() * 0.5, dur + 0.05);
+}
+
+// Библиотека звуков
+const SOUNDS = {
+  // Тик при переборе букв
+  tick() {
+    tone({ freq: 650 + Math.random() * 350, type: 'square', dur: 0.035, vol: 0.07 });
+  },
+  // Дзынь при выборе буквы
+  ding() {
+    tone({ freq: 1318.5, type: 'sine', dur: 0.7, vol: 0.28 });
+    tone({ freq: 1975.5, type: 'sine', dur: 0.5, vol: 0.12 });
+    tone({ freq: 2637, type: 'triangle', dur: 0.35, vol: 0.06 });
+  },
+  // Бросок кубика: серия сухих стуков, которые к концу замедляются
+  roll() {
+    const clicks = 18;
+    for (let i = 0; i < clicks; i++) {
+      const t = 1.2 * Math.pow(i / clicks, 1.5);
+      noise({ start: t, dur: 0.035, vol: 0.22 + Math.random() * 0.12, freq: 1500 + Math.random() * 2500, q: 2.5 });
+      if (i % 3 === 0) tone({ freq: 180 + Math.random() * 120, to: 90, type: 'triangle', start: t, dur: 0.05, vol: 0.1 });
+    }
+  },
+  // Удар при определении победителя
+  hit() {
+    tone({ freq: 170, to: 38, type: 'sine', dur: 0.45, vol: 0.7 });
+    tone({ freq: 95, to: 40, type: 'sawtooth', dur: 0.3, vol: 0.12 });
+    noise({ dur: 0.22, vol: 0.55, freq: 700, q: 0.6, type: 'lowpass' });
+  },
+  // Звук переброса при ничьей: «боинг-боинг» и щелчок
+  tie() {
+    tone({ freq: 300, to: 620, type: 'square', dur: 0.16, vol: 0.12 });
+    tone({ freq: 620, to: 300, type: 'square', start: 0.16, dur: 0.16, vol: 0.12 });
+    tone({ freq: 300, to: 620, type: 'square', start: 0.32, dur: 0.16, vol: 0.12 });
+    noise({ dur: 0.05, vol: 0.2, freq: 2500, q: 1.5 });
+  },
+  // Фанфары в финале
+  fanfare() {
+    const melody = [
+      [523.25, 0.00, 0.13], [523.25, 0.15, 0.13], [523.25, 0.30, 0.13],
+      [659.25, 0.46, 0.38], [587.33, 0.90, 0.14], [659.25, 1.06, 0.14],
+      [783.99, 1.22, 0.90],
+    ];
+    for (const [freq, start, dur] of melody) {
+      tone({ freq, type: 'square', start, dur, vol: 0.12 });
+      tone({ freq: freq * 2, type: 'triangle', start, dur, vol: 0.07 });
+    }
+    // Мажорный аккорд и бас на последней ноте
+    for (const freq of [392, 523.25, 659.25, 1046.5]) tone({ freq, type: 'triangle', start: 1.22, dur: 1.1, vol: 0.1 });
+    tone({ freq: 130.81, type: 'sawtooth', start: 1.22, dur: 1.1, vol: 0.08 });
+  },
+};
+
+// Проиграть звук по имени (если звук выключен или ещё не инициализирован — тишина)
+function playSound(name) {
+  if (!state.soundOn || !audioCtx || !SOUNDS[name]) return;
+  try { SOUNDS[name](); } catch (e) { /* звук не критичен для игры */ }
+}
+
+/* ==========================================================================
+   6. ЧАСТИЦЫ И КОНФЕТТИ (canvas)
+   ========================================================================== */
+const fx = { ctx: null, w: 0, h: 0, dpr: 1, parts: [], raf: 0, last: 0, emitUntil: 0 };
+
+function initFx() {
+  fx.ctx = els.fxCanvas.getContext('2d');
+  resizeFx();
+}
+
+function resizeFx() {
+  fx.dpr = Math.min(window.devicePixelRatio || 1, 2);
+  fx.w = window.innerWidth;
+  fx.h = window.innerHeight;
+  els.fxCanvas.width = Math.round(fx.w * fx.dpr);
+  els.fxCanvas.height = Math.round(fx.h * fx.dpr);
+  fx.ctx.setTransform(fx.dpr, 0, 0, fx.dpr, 0, 0);
+}
+
+// Кусочек конфетти (прямоугольник, который кувыркается и покачивается)
+function addConfetti(x, y, vx, vy) {
+  fx.parts.push({
+    shape: 'rect', x, y, vx, vy, g: 520,
+    size: 7 + Math.random() * 7,
+    color: randItem(CONFETTI_COLORS),
+    rot: Math.random() * 6.28, vr: (Math.random() * 2 - 1) * 10,
+    sway: Math.random() * 6.28, life: 0, maxLife: 9,
+  });
+}
+
+// Искры при ударе (маленькие круглые частицы, которые гаснут)
+function burst(x, y, count) {
+  for (let i = 0; i < count; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 150 + Math.random() * 350;
+    fx.parts.push({
+      shape: 'dot', x, y,
+      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 80, g: 700,
+      size: 2 + Math.random() * 3.5,
+      color: randItem(CONFETTI_COLORS),
+      rot: 0, vr: 0, sway: 0, life: 0, maxLife: 0.6 + Math.random() * 0.5,
+    });
+  }
+  kickFx();
+}
+
+// Праздничный залп конфетти из двух «пушек» и дождь сверху
+function startConfetti() {
+  fx.emitUntil = performance.now() + T.CONFETTI;
+  for (let i = 0; i < 120; i++) {
+    const speed = 600 + Math.random() * 900;
+    const left = (-85 + Math.random() * 40) * Math.PI / 180;    // вверх и вправо
+    const right = (-135 + Math.random() * 40) * Math.PI / 180;  // вверх и влево
+    addConfetti(fx.w * 0.04, fx.h * 0.96, Math.cos(left) * speed, Math.sin(left) * speed);
+    addConfetti(fx.w * 0.96, fx.h * 0.96, Math.cos(right) * speed, Math.sin(right) * speed);
+  }
+  kickFx();
+}
+
+function stopFx() {
+  fx.parts.length = 0;
+  fx.emitUntil = 0;
+  if (fx.ctx) fx.ctx.clearRect(0, 0, fx.w, fx.h);
+}
+
+function kickFx() {
+  if (fx.raf) return;
+  fx.last = performance.now();
+  fx.raf = requestAnimationFrame(stepFx);
+}
+
+// Один кадр: обновляем и рисуем частицы
+function stepFx(now) {
+  const dt = Math.min(0.033, (now - fx.last) / 1000);
+  fx.last = now;
+  const ctx = fx.ctx;
+  ctx.clearRect(0, 0, fx.w, fx.h);
+
+  if (now < fx.emitUntil) {
+    for (let i = 0; i < 4; i++) addConfetti(Math.random() * fx.w, -20, (Math.random() - 0.5) * 60, 80 + Math.random() * 120);
+  }
+
+  const drag = Math.pow(0.2, dt);   // сопротивление воздуха
+  const next = [];
+  for (const p of fx.parts) {
+    p.life += dt;
+    p.vy += p.g * dt;
+    p.vx *= drag;
+    p.vy *= drag;
+    if (p.shape === 'rect') {
+      p.x += (p.vx + Math.sin(p.sway + p.life * 5) * 40) * dt;
+      p.rot += p.vr * dt;
+    } else {
+      p.x += p.vx * dt;
+    }
+    p.y += p.vy * dt;
+    if (p.life > p.maxLife || p.y > fx.h + 30) continue;
+    next.push(p);
+
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.fillStyle = p.color;
+    if (p.shape === 'dot') {
+      ctx.globalAlpha = Math.max(0, 1 - p.life / p.maxLife);
+      ctx.beginPath();
+      ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.rotate(p.rot);
+      ctx.scale(1, Math.abs(Math.cos(p.life * 6 + p.sway)) + 0.15);
+      ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.6);
+    }
+    ctx.restore();
+  }
+  fx.parts = next;
+
+  if (fx.parts.length || now < fx.emitUntil) {
+    fx.raf = requestAnimationFrame(stepFx);
+  } else {
+    fx.raf = 0;
+  }
+}
+
+/* ==========================================================================
+   7. ОТРИСОВКА (render) — единственное место, где состояние попадает в DOM
+   ========================================================================== */
+
+// Рисует грань кубика (0 — «?», кубик ещё не брошен)
+function setDieFace(dieEl, value) {
+  if (dieEl.dataset.face === String(value)) return;
+  dieEl.dataset.face = String(value);
+  if (!value) {
+    dieEl.innerHTML = '<span class="q">?</span>';
+    dieEl.setAttribute('aria-label', 'Кубик ещё не брошен');
+    return;
+  }
+  let html = '';
+  for (let i = 0; i < 9; i++) html += `<i class="${PIPS[value].includes(i) ? 'on' : ''}"></i>`;
+  dieEl.innerHTML = html;
+  dieEl.setAttribute('aria-label', `Кубик: ${value}`);
+}
+
+// Сообщение в панели статуса
+function setStatus(text, tone = '') {
+  state.result = { text, tone };
+  render();
+}
+
+// Перерисовать весь интерфейс по текущему состоянию
+function render() {
+  // Карточки бойцов и кубики
+  for (const slot of SLOTS) {
+    const letter = state.fighters[slot];
+    els.letter[slot].textContent = letter === null ? '?' : letter;
+    els.letter[slot].classList.toggle('empty', letter === null);
+    els.letter[slot].classList.toggle('gone', state.loserSlot === slot && state.loserGone);
+    els.card[slot].classList.toggle('flicker', state.flicker[slot]);
+    els.card[slot].classList.toggle('is-winner', state.winnerSlot === slot);
+    els.card[slot].classList.toggle('is-loser', state.loserSlot === slot);
+    els.die[slot].classList.toggle('rolling', state.rolling[slot]);
+    setDieFace(els.die[slot], state.dice[slot]);
+  }
+
+  // Жетоны алфавита
+  for (const letter of ALPHABET) {
+    const dead = !state.alive.includes(letter);
+    const flick = SLOTS.some((s) => state.flicker[s] && state.fighters[s] === letter);
+    const fight = !dead && !flick && SLOTS.some((s) => state.fighters[s] === letter);
+    const token = els.tokens[letter];
+    token.classList.toggle('dead', dead);
+    token.classList.toggle('flick', flick);
+    token.classList.toggle('fight', fight);
+    token.classList.toggle('champ', state.winner === letter);
+  }
+
+  // Панель статуса
+  const diceReady = !state.rolling.a && !state.rolling.b && state.dice.a && state.dice.b;
+  els.round.textContent = String(state.round);
+  els.left.textContent = `${state.alive.length}/${ALPHABET.length}`;
+  els.diceVals.textContent = diceReady ? `${state.dice.a} : ${state.dice.b}` : '– : –';
+  els.result.textContent = state.result.text;
+  els.result.className = 'result' + (state.result.tone ? ` ${state.result.tone}` : '');
+
+  let hint = '';
+  if (!state.started) hint = 'Звук включится после первого клика. Попробуйте «Авторежим» — битва пойдёт сама.';
+  else if (state.finished) hint = 'Нажмите «Сброс» или «Сыграть снова», чтобы начать заново.';
+  else if (!state.busy) hint = state.auto ? 'Авторежим: следующий раунд начнётся сам…' : 'Нажмите «Следующий раунд».';
+  els.hint.textContent = hint;
+
+  // Кнопки и переключатели
+  els.btnStart.disabled = state.started;
+  els.btnNext.disabled = !state.started || state.busy || state.finished;
+  els.auto.checked = state.auto;
+  els.btnSound.textContent = state.soundOn ? '🔊 Звук: вкл' : '🔇 Звук: выкл';
+  els.btnSound.setAttribute('aria-pressed', String(state.soundOn));
+
+  // Финальный экран
+  els.finale.classList.toggle('show', state.finaleOpen);
+}
+
+/* ==========================================================================
+   8. ЭФФЕКТЫ ЭКРАНА
+   ========================================================================== */
+
+// Тряска всего экрана с затуханием
+function shakeScreen(strength = 16) {
+  const frames = [];
+  for (let i = 0; i < 12; i++) {
+    const k = strength * (1 - i / 12);
+    const dx = ((Math.random() * 2 - 1) * k).toFixed(1);
+    const dy = ((Math.random() * 2 - 1) * k).toFixed(1);
+    const rot = ((Math.random() * 2 - 1) * k / 10).toFixed(2);
+    frames.push({ transform: `translate(${dx}px, ${dy}px) rotate(${rot}deg)` });
+  }
+  frames.push({ transform: 'translate(0, 0) rotate(0deg)' });
+  return anim(els.app, frames, { duration: T.SHAKE, easing: 'linear' });
+}
+
+// Вспышка во весь экран
+function flashScreen(color = '#fff') {
+  els.flash.style.background = color;
+  return anim(els.flash, [{ opacity: 0.85 }, { opacity: 0 }], { duration: T.FLASH, easing: 'ease-out' });
+}
+
+/* ==========================================================================
+   9. ИГРОВАЯ ЛОГИКА
+   ========================================================================== */
+
+/**
+ * pickLetter — выбор бойца на позицию slot ('a' или 'b').
+ * Эффект рулетки: кандидаты быстро перемигиваются (тик на каждый шаг),
+ * рулетка замедляется, затем выбранная буква подпрыгивает (дзынь).
+ */
+async function pickLetter(slot, run) {
+  const otherSlot = slot === 'a' ? 'b' : 'a';
+  // Кандидаты — все живые буквы, кроме уже выбранного соперника
+  const candidates = state.alive.filter((l) => l !== state.fighters[otherSlot]);
+  const chosen = randItem(candidates);
+
+  if (candidates.length > 1) {
+    state.flicker[slot] = true;
+    let prev = null;
+    for (let i = 0; i < T.ROULETTE_STEPS; i++) {
+      let letter;
+      do { letter = randItem(candidates); } while (letter === prev); // два раза подряд одну не показываем
+      prev = letter;
+      state.fighters[slot] = letter;
+      render();
+      playSound('tick');
+      const k = i / (T.ROULETTE_STEPS - 1);
+      await wait(T.ROULETTE_FAST + (T.ROULETTE_SLOW - T.ROULETTE_FAST) * k * k, run); // замедление
+    }
+  }
+
+  // Рулетка остановилась: фиксируем выбор
+  state.flicker[slot] = false;
+  state.fighters[slot] = chosen;
+  render();
+  playSound('ding');
+  await anim(els.letter[slot], BOUNCE_FRAMES, { duration: 550, easing: 'ease-out' }, run);
+  return chosen;
+}
+
+/**
+ * rollDice — бросок кубика на позиции slot.
+ * Кубик трясётся и кувыркается, грани быстро меняются, затем значение фиксируется.
+ * Возвращает итоговое число 1–6.
+ */
+async function rollDice(slot, run, withSound = true) {
+  const dieEl = els.die[slot];
+  const duration = slot === 'a' ? T.ROLL_A : T.ROLL_B;
+  state.rolling[slot] = true;
+  if (withSound) playSound('roll');
+
+  const shake = play(dieEl, SHAKE_FRAMES, { duration: 300, iterations: Infinity, easing: 'linear' });
+  const startedAt = performance.now();
+  while (performance.now() - startedAt < duration) {
+    state.dice[slot] = randInt(DICE_MIN, DICE_MAX); // мелькающие грани
+    render();
+    await wait(T.FACE_FLIP, run);
+  }
+  shake.cancel();
+
+  const value = randInt(DICE_MIN, DICE_MAX);        // итоговое значение
+  state.dice[slot] = value;
+  state.rolling[slot] = false;
+  render();
+  await anim(dieEl, SETTLE_FRAMES, { duration: 380, easing: 'ease-out' }, run);
+  return value;
+}
+
+// Проигравшая буква: сначала тускнеет (CSS-переход), потом вылетает за пределы карточки
+async function eliminateLetter(slot, run) {
+  await wait(T.DIM, run);
+  const dir = slot === 'a' ? -1 : 1;
+  const fly = play(els.letter[slot], [
+    { transform: 'translate(0, 0) rotate(0deg) scale(1)', opacity: 0.7 },
+    { transform: `translate(${dir * 120}px, -260px) rotate(${dir * 420}deg) scale(.25)`, opacity: 0 },
+  ], { duration: T.FLY, easing: 'ease-in', fill: 'forwards' });
+  try { await fly.finished; } catch (e) { /* отменено сбросом */ }
+  checkRun(run);
+  state.loserGone = true;   // прячем букву, пока не началась новая рулетка
+  render();
+  fly.cancel();
+}
+
+/**
+ * resolveRound — сражение двух выбранных букв.
+ * Кубики бросаются, пока не выпадут разные числа (ничья → подпрыгивание,
+ * звук и переброс). Затем: вспышка, тряска, проигравший выбывает навсегда.
+ */
+async function resolveRound(run) {
+  let attempt = 0;
+  let valueA;
+  let valueB;
+
+  while (true) {
+    attempt += 1;
+    setStatus(attempt === 1 ? 'Бросаем кубики…' : `Перебрасываем кубики (попытка ${attempt})…`, attempt === 1 ? '' : 'tie');
+    [valueA, valueB] = await Promise.all([
+      rollDice('a', run, true),     // звук броска играем один раз на оба кубика
+      rollDice('b', run, false),
+    ]);
+    if (valueA !== valueB) break;
+
+    // Ничья: кубики подпрыгивают, играет звук, затем новый бросок
+    setStatus(`Ничья: ${valueA} и ${valueB}! Кубики перебрасываются…`, 'tie');
+    playSound('tie');
+    await Promise.all([
+      anim(els.die.a, HOP_FRAMES, { duration: T.TIE_HOP, easing: 'ease-out' }, run),
+      anim(els.die.b, HOP_FRAMES, { duration: T.TIE_HOP, easing: 'ease-out' }, run),
+    ]);
+    await wait(T.TIE_PAUSE, run);
+  }
+
+  // Определяем победителя и проигравшего
+  const winnerSlot = valueA > valueB ? 'a' : 'b';
+  const loserSlot = winnerSlot === 'a' ? 'b' : 'a';
+  const winnerLetter = state.fighters[winnerSlot];
+  const loserLetter = state.fighters[loserSlot];
+
+  state.winnerSlot = winnerSlot;
+  state.loserSlot = loserSlot;
+  state.alive = state.alive.filter((l) => l !== loserLetter);   // проигравший выбывает навсегда
+  state.out.push(loserLetter);
+  setStatus(
+    `«${winnerLetter}» (${state.dice[winnerSlot]}) побеждает «${loserLetter}» (${state.dice[loserSlot]}). «${loserLetter}» выбывает навсегда!`,
+    'win'
+  );
+  playSound('hit');
+
+  // Искры из карточки проигравшего
+  const rect = els.card[loserSlot].getBoundingClientRect();
+  burst(rect.left + rect.width / 2, rect.top + rect.height / 2, 36);
+
+  // Вспышка, тряска экрана, вылет проигравшей буквы и «встряска» её жетона — всё одновременно
+  await Promise.all([
+    flashScreen('#fff6c0'),
+    shakeScreen(),
+    eliminateLetter(loserSlot, run),
+    anim(els.tokens[loserLetter], TOKEN_DEAD_FRAMES, { duration: 500 }, run),
+  ]);
+}
+
+// Подготовка карточек к новому раунду
+function prepareRound() {
+  state.round += 1;
+  state.fighters = { a: null, b: null };
+  state.dice = { a: 0, b: 0 };
+  state.flicker = { a: false, b: false };
+  state.rolling = { a: false, b: false };
+  state.winnerSlot = null;
+  state.loserSlot = null;
+  state.loserGone = false;
+  setStatus(`Раунд ${state.round}: выбираем первого бойца…`);
+}
+
+// Финал: осталась одна буква
+function finishGame() {
+  state.winner = state.alive[0];
+  state.finished = true;
+  state.finaleOpen = true;
+  els.finaleLetter.textContent = state.winner;
+  els.finaleText.textContent = `Победитель: ${state.winner}`;
+  setStatus(`Победитель: ${state.winner}! Остальные ${ALPHABET.length - 1} буквы выбыли из алфавита.`, 'final');
+  playSound('fanfare');
+  flashScreen('#ffe45c');
+  shakeScreen(10);
+  startConfetti();
+}
+
+// Один полный раунд: выбор двух бойцов → бой → итог
+async function playRound() {
+  if (!state.started || state.busy || state.finished) return;
+  const run = state.runId;
+  state.busy = true;
+  prepareRound();
+
+  try {
+    await pickLetter('a', run);
+    await wait(T.BETWEEN_PICKS, run);
+    setStatus(`Раунд ${state.round}: выбираем второго бойца…`);
+    await pickLetter('b', run);
+    await wait(T.BEFORE_ROLL, run);
+    await resolveRound(run);
+    await wait(T.AFTER_ROUND, run);
+  } catch (err) {
+    if (err instanceof RunAborted) return;   // игру сбросили — тихо выходим
+    throw err;
+  }
+
+  state.busy = false;
+  if (state.alive.length === 1) {
+    finishGame();
+  } else if (state.auto) {
+    autoNext(run);
+  }
+  render();
+}
+
+/* ==========================================================================
+   10. УПРАВЛЕНИЕ
+   ========================================================================== */
+
+// Авторежим: через паузу сам запускает следующий раунд
+async function autoNext(run) {
+  const ticket = ++state.autoTicket;   // новый «билет» отменяет прежние отложенные запуски
+  await sleep(T.AUTO_DELAY);
+  if (run !== state.runId || ticket !== state.autoTicket) return;
+  if (state.auto && state.started && !state.busy && !state.finished) playRound();
+}
+
+function startGame() {
+  if (state.started) return;
+  state.started = true;
+  playRound();
+}
+
+function resetGame() {
+  resetState();
+  cancelAllAnims();
+  stopFx();
+  render();
+}
+
+function onAutoChange(on) {
+  state.auto = on;
+  state.autoTicket += 1;               // отменяем возможный отложенный запуск
+  render();
+  if (on && state.started && !state.busy && !state.finished) autoNext(state.runId);
+}
+
+function toggleSound() {
+  state.soundOn = !state.soundOn;
+  render();
+  if (state.soundOn) playSound('tick');   // короткий отклик при включении
+}
+
+function closeFinale() {
+  state.finaleOpen = false;
+  render();
+}
+
+/* ==========================================================================
+   11. ЗАПУСК
+   ========================================================================== */
+function init() {
+  buildAlphabet();
+  initFx();
+  render();
+
+  els.btnStart.addEventListener('click', startGame);
+  els.btnNext.addEventListener('click', () => playRound());
+  els.btnReset.addEventListener('click', resetGame);
+  els.auto.addEventListener('change', () => onAutoChange(els.auto.checked));
+  els.btnSound.addEventListener('click', toggleSound);
+  els.btnAgain.addEventListener('click', () => { resetGame(); startGame(); });
+  els.btnClose.addEventListener('click', closeFinale);
+  els.finale.addEventListener('click', (e) => { if (e.target === els.finale) closeFinale(); });
+  window.addEventListener('resize', resizeFx);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.finaleOpen) closeFinale(); });
+
+  // Звук включаем по первому действию пользователя (в фазе перехвата — до остальных обработчиков)
+  document.addEventListener('click', initAudio, true);
+  document.addEventListener('keydown', initAudio, true);
+  document.addEventListener('touchend', initAudio, true);
+}
+
+init();
+</script>
+</body>
+</html>
